@@ -10,6 +10,7 @@ import { getChipElementClass } from "../../utils/lovelace/chip-element-editor";
 import { CHIP_LIST, LovelaceChipConfig } from "../../utils/lovelace/chip/types";
 import { EditorTarget } from "../../utils/lovelace/editor/types";
 import { HassEntity } from "home-assistant-js-websocket";
+import { setupConditionChipComponent } from "./chips/conditional-chip";
 
 let Sortable;
 
@@ -114,12 +115,11 @@ export class ChipsCardEditorChips extends MushroomBaseElement {
                 naturalMenuWidth
             >
                 ${CHIP_LIST.map(
-                    (chip) =>
-                        html`
-                            <mwc-list-item .value=${chip}>
-                                ${customLocalize(`editor.chip.chip-picker.types.${chip}`)}
-                            </mwc-list-item>
-                        `
+                    (chip) => html`
+                        <mwc-list-item .value=${chip}>
+                            ${customLocalize(`editor.chip.chip-picker.types.${chip}`)}
+                        </mwc-list-item>
+                    `
                 )}
             </mushroom-select>
         `;
@@ -189,6 +189,10 @@ export class ChipsCardEditorChips extends MushroomBaseElement {
 
         let newChip: LovelaceChipConfig;
 
+        if (value === "conditional") {
+            await setupConditionChipComponent();
+        }
+
         // Check if a stub config exists
         const elClass = getChipElementClass(value) as any;
 
@@ -241,31 +245,23 @@ export class ChipsCardEditorChips extends MushroomBaseElement {
 
     private _renderChipLabel(chipConf: LovelaceChipConfig): string {
         const customLocalize = setupCustomlocalize(this.hass);
-        let label = customLocalize(`editor.chip.chip-picker.types.${chipConf.type}`);
-        if (chipConf.type === "conditional" && chipConf.conditions.length > 0) {
-            const condition = chipConf.conditions[0];
-            const entity = this.getEntityName(condition.entity) ?? condition.entity;
-            label += ` - ${entity} ${
-                condition.state
-                    ? `= ${condition.state}`
-                    : condition.state_not
-                    ? `≠ ${condition.state_not}`
-                    : null
-            }`;
-        }
-        return label;
+        return customLocalize(`editor.chip.chip-picker.types.${chipConf.type}`);
     }
 
     private _renderChipSecondary(chipConf: LovelaceChipConfig): string | undefined {
         const customLocalize = setupCustomlocalize(this.hass);
         if ("entity" in chipConf && chipConf.entity) {
-            return `${this.getEntityName(chipConf.entity) ?? chipConf.entity}`;
+            return `${this.getEntityName(chipConf.entity) ?? chipConf.entity ?? ""}`;
         }
         if ("chip" in chipConf && chipConf.chip) {
             const label = customLocalize(`editor.chip.chip-picker.types.${chipConf.chip.type}`);
-            return `${this._renderChipSecondary(chipConf.chip)} (via ${label})`;
+            const chipSecondary = this._renderChipSecondary(chipConf.chip);
+            if (chipSecondary) {
+                return `${this._renderChipSecondary(chipConf.chip)} (via ${label})`;
+            }
+            return label;
         }
-        return undefined;
+        return "";
     }
 
     private getEntityName(entity_id: string): string | undefined {

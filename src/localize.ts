@@ -12,6 +12,7 @@ import * as fi from "./translations/fi.json";
 import * as fr from "./translations/fr.json";
 import * as he from "./translations/he.json";
 import * as hu from "./translations/hu.json";
+import * as id from "./translations/id.json";
 import * as it from "./translations/it.json";
 import * as ko_KR from "./translations/ko-KR.json";
 import * as nb from "./translations/nb.json";
@@ -25,6 +26,7 @@ import * as sl from "./translations/sl.json";
 import * as sk from "./translations/sk.json";
 import * as sv from "./translations/sv.json";
 import * as tr from "./translations/tr.json";
+import * as uk from "./translations/uk.json";
 import * as vi from "./translations/vi.json";
 import * as zh_Hans from "./translations/zh-Hans.json";
 import * as zh_Hant from "./translations/zh-Hant.json";
@@ -43,6 +45,7 @@ const languages: Record<string, unknown> = {
     fr,
     he,
     hu,
+    id,
     it,
     "ko-KR": ko_KR,
     nb,
@@ -56,6 +59,7 @@ const languages: Record<string, unknown> = {
     sk,
     sv,
     tr,
+    uk,
     vi,
     "zh-Hans": zh_Hans,
     "zh-Hant": zh_Hant,

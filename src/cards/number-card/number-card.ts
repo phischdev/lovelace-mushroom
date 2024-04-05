@@ -1,5 +1,5 @@
 import { HassEntity } from "home-assistant-js-websocket";
-import { css, CSSResultGroup, html, nothing, TemplateResult } from "lit";
+import { css, CSSResultGroup, html, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
@@ -42,7 +42,7 @@ registerCustomCard({
 });
 
 @customElement(NUMBER_CARD_NAME)
-export class NumberCard extends MushroomBaseCard implements LovelaceCard {
+export class NumberCard extends MushroomBaseCard<NumberCardConfig> implements LovelaceCard {
     public static async getConfigElement(): Promise<LovelaceCardEditor> {
         await import("./number-card-editor");
         return document.createElement(NUMBER_CARD_EDITOR_NAME) as LovelaceCardEditor;
@@ -57,25 +57,11 @@ export class NumberCard extends MushroomBaseCard implements LovelaceCard {
         };
     }
 
-    @state() private _config?: NumberCardConfig;
+    protected get hasControls(): boolean {
+        return true;
+    }
 
     @state() private value?: number;
-
-    getCardSize(): number | Promise<number> {
-        return 1;
-    }
-
-    setConfig(config: NumberCardConfig): void {
-        this._config = {
-            tap_action: {
-                action: "more-info",
-            },
-            hold_action: {
-                action: "more-info",
-            },
-            ...config,
-        };
-    }
 
     private _handleAction(ev: ActionHandlerEvent) {
         handleAction(this, this.hass!, this._config!, ev.detail.action!);
@@ -87,13 +73,27 @@ export class NumberCard extends MushroomBaseCard implements LovelaceCard {
         }
     }
 
+    protected updated(changedProperties: PropertyValues) {
+        super.updated(changedProperties);
+        if (this.hass && changedProperties.has("hass")) {
+            this.updateValue();
+        }
+    }
+
+    updateValue() {
+        this.value = undefined;
+        const stateObj = this._stateObj;
+
+        if (!stateObj || Number.isNaN(stateObj.state)) return;
+        this.value = Number(stateObj.state);
+    }
+
     protected render() {
         if (!this._config || !this.hass || !this._config.entity) {
             return nothing;
         }
 
-        const entityId = this._config.entity;
-        const stateObj = this.hass.states[entityId] as HassEntity | undefined;
+        const stateObj = this._stateObj;
 
         if (!stateObj) {
             return this.renderNotFound(this._config);
@@ -104,13 +104,15 @@ export class NumberCard extends MushroomBaseCard implements LovelaceCard {
         const appearance = computeAppearance(this._config);
         const picture = computeEntityPicture(stateObj, appearance.icon_type);
 
-        let stateDisplay = computeStateDisplay(
-            this.hass.localize,
-            stateObj,
-            this.hass.locale,
-            this.hass.config,
-            this.hass.entities
-        );
+        let stateDisplay = this.hass.formatEntityState
+            ? this.hass.formatEntityState(stateObj)
+            : computeStateDisplay(
+                  this.hass.localize,
+                  stateObj,
+                  this.hass.locale,
+                  this.hass.config,
+                  this.hass.entities
+              );
         if (this.value !== undefined) {
             const numberValue = formatNumber(
                 this.value,
@@ -172,7 +174,12 @@ export class NumberCard extends MushroomBaseCard implements LovelaceCard {
         }
         return html`
             <mushroom-shape-icon slot="icon" .disabled=${!active} style=${styleMap(iconStyle)}>
-                <ha-state-icon .state=${stateObj} .icon=${icon}></ha-state-icon>
+                <ha-state-icon
+                    .hass=${this.hass}
+                    .stateObj=${stateObj}
+                    .state=${stateObj}
+                    .icon=${icon}
+                ></ha-state-icon>
             </mushroom-shape-icon>
         `;
     }

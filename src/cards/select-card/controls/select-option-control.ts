@@ -42,18 +42,21 @@ export class SelectOptionControl extends LitElement {
                 @closed=${(e) => e.stopPropagation()}
                 .value=${value ?? ""}
                 naturalMenuWidth
+                fixedMenuPosition
             >
                 ${options.map((option) => {
                     return html`
                         <mwc-list-item .value=${option}>
-                            ${computeStateDisplay(
-                                this.hass.localize,
-                                this.entity,
-                                this.hass.locale,
-                                this.hass.config,
-                                this.hass.entities,
-                                option
-                            )}
+                            ${this.hass.formatEntityState
+                                ? this.hass.formatEntityState(this.entity, option)
+                                : computeStateDisplay(
+                                      this.hass.localize,
+                                      this.entity,
+                                      this.hass.locale,
+                                      this.hass.config,
+                                      this.hass.entities,
+                                      option
+                                  )}
                         </mwc-list-item>
                     `;
                 })}

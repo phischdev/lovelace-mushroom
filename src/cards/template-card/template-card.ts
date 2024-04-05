@@ -1,6 +1,6 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 import { css, CSSResultGroup, html, nothing, PropertyValues, TemplateResult } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
 import {
@@ -12,6 +12,7 @@ import {
     HomeAssistant,
     LovelaceCard,
     LovelaceCardEditor,
+    LovelaceLayoutOptions,
     RenderTemplateResult,
     subscribeRenderTemplate,
 } from "../../ha";
@@ -69,8 +70,43 @@ export class TemplateCard extends MushroomBaseElement implements LovelaceCard {
 
     @state() private _unsubRenderTemplates: Map<TemplateKey, Promise<UnsubscribeFunc>> = new Map();
 
-    getCardSize(): number | Promise<number> {
-        return 1;
+    @property({ attribute: "in-grid", reflect: true, type: Boolean })
+    protected _inGrid = false;
+
+    public getCardSize(): number | Promise<number> {
+        let height = 1;
+        if (!this._config) return height;
+        const appearance = computeAppearance(this._config);
+        if (appearance.layout === "vertical") {
+            height += 1;
+        }
+        return height;
+    }
+
+    // For backward compatibility
+    public getGridSize(): [number | undefined, number | undefined] {
+        const { grid_columns, grid_rows } = this.getLayoutOptions();
+        return [grid_columns, grid_rows];
+    }
+
+    public getLayoutOptions(): LovelaceLayoutOptions {
+        this._inGrid = true;
+        const options: LovelaceLayoutOptions = {
+            grid_columns: 2,
+            grid_rows: 1,
+        };
+        if (!this._config) return options;
+        const appearance = computeAppearance(this._config);
+        if (appearance.layout === "vertical") {
+            options.grid_rows! += 1;
+        }
+        if (appearance.layout === "horizontal") {
+            options.grid_columns = 4;
+        }
+        if (this._config?.multiline_secondary) {
+            options.grid_rows = undefined
+        }
+        return options;
     }
 
     setConfig(config: TemplateCardConfig): void {
@@ -193,7 +229,7 @@ export class TemplateCard extends MushroomBaseElement implements LovelaceCard {
         }
         return html`
             <mushroom-shape-icon style=${styleMap(iconStyle)} slot="icon">
-                <ha-state-icon .icon=${icon}></ha-state-icon>
+                <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
             </mushroom-shape-icon>
         `;
     }

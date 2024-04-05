@@ -27,7 +27,10 @@ import { registerCustomCard } from "../../utils/custom-cards";
 import { computeEntityPicture } from "../../utils/info";
 import { VACUUM_CARD_EDITOR_NAME, VACUUM_CARD_NAME, VACUUM_ENTITY_DOMAINS } from "./const";
 import "./controls/vacuum-commands-control";
-import { isCommandsControlVisible } from "./controls/vacuum-commands-control";
+import {
+    isCommandsControlSupported,
+    isCommandsControlVisible,
+} from "./controls/vacuum-commands-control";
 import { isCleaning, isReturningHome } from "./utils";
 import { VacuumCardConfig } from "./vacuum-card-config";
 
@@ -38,7 +41,10 @@ registerCustomCard({
 });
 
 @customElement(VACUUM_CARD_NAME)
-export class VacuumCard extends MushroomBaseCard implements LovelaceCard {
+export class VacuumCard
+    extends MushroomBaseCard<VacuumCardConfig, VacuumEntity>
+    implements LovelaceCard
+{
     public static async getConfigElement(): Promise<LovelaceCardEditor> {
         await import("./vacuum-card-editor");
         return document.createElement(VACUUM_CARD_EDITOR_NAME) as LovelaceCardEditor;
@@ -53,22 +59,9 @@ export class VacuumCard extends MushroomBaseCard implements LovelaceCard {
         };
     }
 
-    @state() private _config?: VacuumCardConfig;
-
-    getCardSize(): number | Promise<number> {
-        return 1;
-    }
-
-    setConfig(config: VacuumCardConfig): void {
-        this._config = {
-            tap_action: {
-                action: "more-info",
-            },
-            hold_action: {
-                action: "more-info",
-            },
-            ...config,
-        };
+    protected get hasControls() {
+        if (!this._stateObj || !this._config) return false;
+        return isCommandsControlSupported(this._stateObj, this._config.commands ?? []);
     }
 
     private _handleAction(ev: ActionHandlerEvent) {
@@ -80,8 +73,7 @@ export class VacuumCard extends MushroomBaseCard implements LovelaceCard {
             return nothing;
         }
 
-        const entityId = this._config.entity;
-        const stateObj = this.hass.states[entityId] as VacuumEntity | undefined;
+        const stateObj = this._stateObj;
 
         if (!stateObj) {
             return this.renderNotFound(this._config);
@@ -141,7 +133,12 @@ export class VacuumCard extends MushroomBaseCard implements LovelaceCard {
                 style=${styleMap({})}
                 .disabled=${!isActive(stateObj)}
             >
-                <ha-state-icon .state=${stateObj} .icon=${icon}></ha-state-icon
+                <ha-state-icon
+                    .hass=${this.hass}
+                    .stateObj=${stateObj}
+                    .state=${stateObj}
+                    .icon=${icon}
+                ></ha-state-icon
             ></mushroom-shape-icon>
         `;
     }
@@ -158,11 +155,11 @@ export class VacuumCard extends MushroomBaseCard implements LovelaceCard {
                     --icon-color: rgb(var(--rgb-state-vacuum));
                     --shape-color: rgba(var(--rgb-state-vacuum), 0.2);
                 }
-                mushroom-shape-icon.cleaning {
-                    --icon-animation: 5s infinite linear cleaning;
+                .cleaning ha-state-icon {
+                    animation: 5s infinite linear cleaning;
                 }
-                mushroom-shape-icon.returning {
-                    --icon-animation: 2s infinite linear returning;
+                .cleaning ha-state-icon {
+                    animation: 2s infinite linear returning;
                 }
                 mushroom-vacuum-commands-control {
                     flex: 1;

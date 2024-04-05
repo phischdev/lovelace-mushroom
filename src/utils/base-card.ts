@@ -1,7 +1,15 @@
 import { HassEntity } from "home-assistant-js-websocket";
 import { html, nothing, TemplateResult } from "lit";
+import { property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
-import { computeRTL, computeStateDisplay, HomeAssistant, isActive, isAvailable } from "../ha";
+import {
+    computeRTL,
+    computeStateDisplay,
+    HomeAssistant,
+    isActive,
+    isAvailable,
+    LovelaceLayoutOptions,
+} from "../ha";
 import setupCustomlocalize from "../localize";
 import "../shared/badge-icon";
 import "../shared/card";
@@ -21,7 +29,81 @@ export function computeDarkMode(hass?: HomeAssistant): boolean {
     if (!hass) return false;
     return (hass.themes as any).darkMode as boolean;
 }
-export class MushroomBaseCard extends MushroomBaseElement {
+export class MushroomBaseCard<
+    T extends BaseConfig = BaseConfig,
+    E extends HassEntity = HassEntity,
+> extends MushroomBaseElement {
+    @state() protected _config?: T;
+
+    @property({ attribute: "in-grid", reflect: true, type: Boolean })
+    protected _inGrid = false;
+
+    protected get _stateObj(): E | undefined {
+        if (!this._config || !this.hass || !this._config.entity) return undefined;
+
+        const entityId = this._config.entity;
+        return this.hass.states[entityId] as E;
+    }
+
+    protected get hasControls(): boolean {
+        return false;
+    }
+
+    setConfig(config: T): void {
+        this._config = {
+            tap_action: {
+                action: "more-info",
+            },
+            hold_action: {
+                action: "more-info",
+            },
+            ...config,
+        };
+    }
+
+    // For backward compatibility
+    public getGridSize(): [number | undefined, number | undefined] {
+        const { grid_columns, grid_rows } = this.getLayoutOptions();
+        return [grid_columns, grid_rows];
+    }
+
+    public getCardSize(): number | Promise<number> {
+        let height = 1;
+        if (!this._config) return height;
+        const appearance = computeAppearance(this._config);
+        if (appearance.layout === "vertical") {
+            height += 1;
+        }
+        if (
+            appearance?.layout !== "horizontal" &&
+            this.hasControls &&
+            !("collapsible_controls" in this._config && this._config?.collapsible_controls)
+        ) {
+            height += 1;
+        }
+        return height;
+    }
+
+    public getLayoutOptions(): LovelaceLayoutOptions {
+        this._inGrid = true;
+        const options = {
+            grid_columns: 2,
+            grid_rows: 1,
+        };
+        if (!this._config) return options;
+        const appearance = computeAppearance(this._config);
+        if (appearance.layout === "vertical") {
+            options.grid_rows += 1;
+        }
+        if (appearance.layout === "horizontal") {
+            options.grid_columns = 4;
+        }
+        if (appearance?.layout !== "horizontal" && this.hasControls) {
+            options.grid_rows += 1;
+        }
+        return options;
+    }
+
     protected renderPicture(picture: string): TemplateResult {
         return html`
             <mushroom-shape-avatar
@@ -52,7 +134,7 @@ export class MushroomBaseCard extends MushroomBaseElement {
                         <mushroom-state-info
                             slot="info"
                             .primary=${config.entity}
-                            secondary=${customLocalize("card.not_found")}
+                            .secondary=${customLocalize("card.not_found")}
                         ></mushroom-state-info>
                     </mushroom-state-item>
                 </mushroom-card>
@@ -64,7 +146,12 @@ export class MushroomBaseCard extends MushroomBaseElement {
         const active = isActive(stateObj);
         return html`
             <mushroom-shape-icon slot="icon" .disabled=${!active}>
-                <ha-state-icon .state=${stateObj} .icon=${icon}></ha-state-icon
+                <ha-state-icon
+                    .hass=${this.hass}
+                    .stateObj=${stateObj}
+                    .state=${stateObj}
+                    .icon=${icon}
+                ></ha-state-icon
             ></mushroom-shape-icon>
         `;
     }
@@ -88,13 +175,15 @@ export class MushroomBaseCard extends MushroomBaseElement {
         name: string,
         state?: string
     ): TemplateResult | null {
-        const defaultState = computeStateDisplay(
-            this.hass.localize,
-            stateObj,
-            this.hass.locale,
-            this.hass.config,
-            this.hass.entities
-        );
+        const defaultState = this.hass.formatEntityState
+            ? this.hass.formatEntityState(stateObj)
+            : computeStateDisplay(
+                  this.hass.localize,
+                  stateObj,
+                  this.hass.locale,
+                  this.hass.config,
+                  this.hass.entities
+              );
         const displayState = state ?? defaultState;
 
         const primary = computeInfoDisplay(
